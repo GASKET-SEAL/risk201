@@ -1,114 +1,156 @@
 #include "../include/alu.hpp"
+#include <limits>
 
 namespace risc201 {
 
-AluResult Alu::doAdd(int32_t a, int32_t b) const {
-    AluResult r;
-    r.value = static_cast<uint32_t>(a) + static_cast<uint32_t>(b);
-    return r;
+namespace {
+
+AluNzcv toNzcv(const AdderOut& s) {
+    AluNzcv n;
+    n.N = (s.sum >> 31) != 0;
+    n.Z = (s.sum == 0);
+    n.C = s.carry;
+    n.V = s.overflow;
+    return n;
 }
 
-AluResult Alu::doSub(int32_t a, int32_t b) const {
-    AluResult r;
-    r.value = static_cast<uint32_t>(a) - static_cast<uint32_t>(b);
-    return r;
-}
-
-AluResult Alu::doCmp(int32_t a, int32_t b) const {
-    // "cmp = subtract, flags-only" -- the adder still runs the subtraction,
-    // but per the design doc the result is discarded (isWb is gated off for
-    // cmp), so value is left at 0. Only E/GT are meaningful here.
-    AluResult r;
-    r.value = 0;
-    r.flags.E = (a == b);
-    r.flags.GT = (a > b);
-    return r;
-}
-
-AluResult Alu::doShift(AluOp op, int32_t a, int32_t b) const {
-    // "shift amount from op2/immx" -- shift amount comes from B, value being
-    // shifted is A. Masked to 5 bits (0-31) since this is a 32-bit barrel
-    // shifter and a raw immx could otherwise carry a huge sign-extended value.
-    AluResult r;
-    uint32_t shamt = static_cast<uint32_t>(b) & 0x1Fu;
+AluNzcv referenceNzcv(int32_t a, int32_t b, bool sub) {
     uint32_t ua = static_cast<uint32_t>(a);
-
-    switch (op) {
-    case AluOp::LSL:
-        r.value = ua << shamt;
-        break;
-    case AluOp::LSR:
-        r.value = ua >> shamt; // logical: zero-fill, bit pattern only
-        break;
-    case AluOp::ASR: {
-        // Arithmetic: sign-fill. Done manually (not relying on how the
-        // compiler treats `>>` on a negative int32_t) so behavior is
-        // guaranteed rather than implementation-defined.
-        if (shamt == 0) {
-            r.value = ua;
-        } else if (a < 0) {
-            uint32_t signFill = shamt == 32 ? 0xFFFFFFFFu : ~((1u << (32 - shamt)) - 1u);
-            r.value = (ua >> shamt) | signFill;
-        } else {
-            r.value = ua >> shamt;
-        }
-        break;
-    }
-    default:
-        break; // unreachable; op is always one of the three shift ops here
-    }
-    return r;
+    uint32_t ub = static_cast<uint32_t>(b);
+    uint32_t res = sub ? ua - ub : ua + ub;
+    int64_t wide = sub ? static_cast<int64_t>(a) - b : static_cast<int64_t>(a) + b;
+    AluNzcv n;
+    n.N = (res >> 31) != 0;
+    n.Z = (res == 0);
+    n.V = wide < std::numeric_limits<int32_t>::min() || wide > std::numeric_limits<int32_t>::max();
+    n.C = sub ? (ua >= ub) : ((static_cast<uint64_t>(ua) + ub) > 0xFFFFFFFFull);
+    return n;
 }
+
+} // namespace
+
+Alu::Alu(AluConfig config) : cfg(config) {}
+
+const AluConfig& Alu::config() const { return cfg; }
 
 AluResult Alu::execute(AluOp op, int32_t a, int32_t b, AluFlags currentFlags) const {
+    if (b == 0 && op == AluOp::DIV) throw AluException("division by zero (div)");
+    if (b == 0 && op == AluOp::MOD) throw AluException("division by zero (mod)");
+    if (cfg.reference) return executeReference(op, a, b, currentFlags);
+    return executeStructural(op, static_cast<Word>(a), static_cast<Word>(b), currentFlags);
+}
+
+AluResult Alu::executeStructural(AluOp op, Word a, Word b, AluFlags flags) const {
     AluResult r;
+    r.flags = flags;
+
+    switch (op) {
+    case AluOp::ADD: {
+        AdderOut s = adderAdd(cfg.adder, a, b);
+        r.value = s.sum;
+        r.nzcv = toNzcv(s);
+        break;
+    }
+    case AluOp::SUB: {
+        AdderOut s = adderSub(cfg.adder, a, b);
+        r.value = s.sum;
+        r.nzcv = toNzcv(s);
+        break;
+    }
+    case AluOp::CMP: {
+        AdderOut s = adderSub(cfg.adder, a, b);
+        r.nzcv = toNzcv(s);
+        r.flags.E = r.nzcv.Z;
+        r.flags.GT = !r.nzcv.Z && (r.nzcv.N == r.nzcv.V);
+        break;
+    }
+    case AluOp::MUL:
+        r.value = multiply(cfg.mul, cfg.adder, a, b);
+        break;
+    case AluOp::DIV:
+        r.value = divideSigned(cfg.div, cfg.adder, a, b).quotient;
+        break;
+    case AluOp::MOD:
+        r.value = divideSigned(cfg.div, cfg.adder, a, b).remainder;
+        break;
+    case AluOp::AND:
+        r.value = a & b;
+        break;
+    case AluOp::OR:
+        r.value = a | b;
+        break;
+    case AluOp::NOT:
+        r.value = ~b;
+        break;
+    case AluOp::LSL:
+        r.value = barrelShift(ShiftKind::LSL, a, b);
+        break;
+    case AluOp::LSR:
+        r.value = barrelShift(ShiftKind::LSR, a, b);
+        break;
+    case AluOp::ASR:
+        r.value = barrelShift(ShiftKind::ASR, a, b);
+        break;
+    case AluOp::MOV:
+        r.value = b;
+        break;
+    }
+    return r;
+}
+
+AluResult Alu::executeReference(AluOp op, int32_t a, int32_t b, AluFlags flags) const {
+    AluResult r;
+    r.flags = flags;
+    uint32_t ua = static_cast<uint32_t>(a);
+    uint32_t ub = static_cast<uint32_t>(b);
+    uint32_t sh = ub & 0x1Fu;
+    bool minOverMinusOne = (a == std::numeric_limits<int32_t>::min() && b == -1);
 
     switch (op) {
     case AluOp::ADD:
-        r = doAdd(a, b);
+        r.value = ua + ub;
+        r.nzcv = referenceNzcv(a, b, false);
         break;
     case AluOp::SUB:
-        r = doSub(a, b);
-        break;
-    case AluOp::MUL:
-        // Separate block, not adder-derived (per design doc). 32-bit result,
-        // truncated on overflow -- same as any fixed-width ALU multiplier.
-        r.value = static_cast<uint32_t>(a) * static_cast<uint32_t>(b);
-        break;
-    case AluOp::DIV:
-        if (b == 0) throw AluException("division by zero (div)");
-        r.value = static_cast<uint32_t>(a / b);
-        break;
-    case AluOp::MOD:
-        if (b == 0) throw AluException("division by zero (mod)");
-        r.value = static_cast<uint32_t>(a % b);
-        break;
-    case AluOp::AND:
-        r.value = static_cast<uint32_t>(a) & static_cast<uint32_t>(b);
-        break;
-    case AluOp::OR:
-        r.value = static_cast<uint32_t>(a) | static_cast<uint32_t>(b);
-        break;
-    case AluOp::NOT:
-        // REG2_NO_RS1: "not" ignores rs1 -- operates on B (rs2/imm) only, `a` unused.
-        r.value = ~static_cast<uint32_t>(b);
-        break;
-    case AluOp::LSL:
-    case AluOp::LSR:
-    case AluOp::ASR:
-        r = doShift(op, a, b);
-        break;
-    case AluOp::MOV:
-        // REG2_NO_RS1: "mov" ignores rs1 -- passes B straight through, `a` unused.
-        r.value = static_cast<uint32_t>(b);
+        r.value = ua - ub;
+        r.nzcv = referenceNzcv(a, b, true);
         break;
     case AluOp::CMP:
-        r = doCmp(a, b);
-        return r; // CMP is the one op allowed to change flags -- return its own
+        r.nzcv = referenceNzcv(a, b, true);
+        r.flags.E = (a == b);
+        r.flags.GT = (a > b);
+        break;
+    case AluOp::MUL:
+        r.value = ua * ub;
+        break;
+    case AluOp::DIV:
+        r.value = minOverMinusOne ? ua : static_cast<uint32_t>(a / b);
+        break;
+    case AluOp::MOD:
+        r.value = minOverMinusOne ? 0u : static_cast<uint32_t>(a % b);
+        break;
+    case AluOp::AND:
+        r.value = ua & ub;
+        break;
+    case AluOp::OR:
+        r.value = ua | ub;
+        break;
+    case AluOp::NOT:
+        r.value = ~ub;
+        break;
+    case AluOp::LSL:
+        r.value = ua << sh;
+        break;
+    case AluOp::LSR:
+        r.value = ua >> sh;
+        break;
+    case AluOp::ASR:
+        r.value = (ua >> sh) | ((a < 0 && sh != 0) ? (0xFFFFFFFFu << (32 - sh)) : 0u);
+        break;
+    case AluOp::MOV:
+        r.value = ub;
+        break;
     }
-
-    // Every non-CMP op leaves flags exactly as it found them.
-    r.flags = currentFlags;
     return r;
 }
 
