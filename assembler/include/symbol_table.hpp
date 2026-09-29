@@ -10,6 +10,7 @@ public:
     bool isDefined(const std::string& name) const;
     void define(const std::string& name, uint32_t address);
     uint32_t valueOf(const std::string& name) const;
+    const std::map<std::string, uint32_t>& all() const;
 
 private:
     std::map<std::string, uint32_t> table;
