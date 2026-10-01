@@ -1,6 +1,7 @@
 #include "../include/reader.hpp"
 #include <fstream>
 #include <stdexcept>
+#include <map>
 
 namespace risc201 {
 
@@ -37,6 +38,18 @@ static std::vector<uint32_t> readBin(const std::string& path) {
 std::vector<uint32_t> Reader::readWords(const std::string& path) {
     if (endsWith(path, ".bin")) return readBin(path);
     return readHex(path);
+}
+
+std::map<uint32_t, std::string> Reader::readSymbols(const std::string& path) {
+    std::ifstream in(path);
+    if (!in) throw std::runtime_error("cannot open " + path);
+    std::map<uint32_t, std::string> symbols;
+    std::string addrStr, name;
+    while (in >> addrStr >> name) {
+        uint32_t addr = (uint32_t)std::stoul(addrStr, nullptr, 16);
+        symbols[addr] = name;
+    }
+    return symbols;
 }
 
 }

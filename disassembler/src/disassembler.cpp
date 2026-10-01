@@ -3,20 +3,37 @@
 #include "../include/opcode_table.hpp"
 #include "../include/reader.hpp"
 #include <cstdio>
-#include <map>
 #include <set>
 #include <sstream>
 
 namespace risc201 {
 
-static std::string labelName(uint32_t addr) {
+static std::string labelFor(uint32_t addr, const std::map<uint32_t, std::string>& symbols) {
+    auto it = symbols.find(addr);
+    if (it != symbols.end()) return it->second;
     char buf[16];
     snprintf(buf, sizeof(buf), "L%08x", addr);
     return buf;
 }
 
-std::string Disassembler::disassemble(const std::string& inputPath) {
-    std::vector<uint32_t> words = Reader::readWords(inputPath);
+std::string Disassembler::disassembleOne(uint32_t word, uint32_t address,
+                                          const std::map<uint32_t, std::string>& symbols) {
+    OpcodeTable opcodeTable;
+    Decoder decoder(opcodeTable);
+    DecodedInstruction d = decoder.decode(word, address);
+
+    std::ostringstream out;
+    out << d.mnemonic;
+    if (d.isBranchLike) {
+        out << " " << labelFor(d.branchTargetAddress, symbols);
+    } else if (!d.operandText.empty()) {
+        out << " " << d.operandText;
+    }
+    return out.str();
+}
+
+std::string Disassembler::disassembleWords(const std::vector<uint32_t>& words,
+                                            const std::map<uint32_t, std::string>& symbols) {
     uint32_t programEnd = (uint32_t)words.size() * 4;
 
     OpcodeTable opcodeTable;
@@ -35,10 +52,12 @@ std::string Disassembler::disassemble(const std::string& inputPath) {
         instrs.push_back(d);
     }
 
+    for (const auto& [addr, name] : symbols) targets.insert(addr);
+
     std::ostringstream out;
     for (const DecodedInstruction& d : instrs) {
         if (targets.count(d.address)) {
-            out << labelName(d.address) << ":\n";
+            out << labelFor(d.address, symbols) << ":\n";
         }
 
         char addrBuf[16];
@@ -46,17 +65,24 @@ std::string Disassembler::disassemble(const std::string& inputPath) {
         out << "    " << d.mnemonic;
 
         if (d.isBranchLike) {
-            std::string tgt = d.branchTargetInRange ? labelName(d.branchTargetAddress)
+            std::string tgt = d.branchTargetInRange ? labelFor(d.branchTargetAddress, symbols)
                                                       : std::to_string(d.branchTargetAddress);
             out << " " << tgt;
         } else if (!d.operandText.empty()) {
             out << " " << d.operandText;
         }
 
-        out << "    ; " << addrBuf << ": " << [&]{ char b[9]; snprintf(b, sizeof(b), "%08x", d.word); return std::string(b); }() << "\n";
+        char wbuf[9];
+        snprintf(wbuf, sizeof(wbuf), "%08x", d.word);
+        out << "    ; " << addrBuf << ": " << wbuf << "\n";
     }
 
     return out.str();
+}
+
+std::string Disassembler::disassemble(const std::string& inputPath) {
+    std::vector<uint32_t> words = Reader::readWords(inputPath);
+    return disassembleWords(words);
 }
 
 }
