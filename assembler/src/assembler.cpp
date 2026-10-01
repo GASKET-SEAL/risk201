@@ -69,8 +69,15 @@ bool Assembler::assemble(const std::string& inputPath, const std::string& output
         bin.write((char*)bytes, 4);
     }
 
+    std::ofstream sym(outputPrefix + ".sym");
+    for (const auto& [name, addr] : result.symbols) {
+        char buf[9];
+        snprintf(buf, sizeof(buf), "%08x", addr);
+        sym << buf << " " << name << "\n";
+    }
+
     std::cout << "assembled " << result.words.size() << " instruction(s) -> "
-              << outputPrefix << ".hex, " << outputPrefix << ".bin\n";
+              << outputPrefix << ".hex, " << outputPrefix << ".bin, " << outputPrefix << ".sym\n";
     return true;
 }
 
