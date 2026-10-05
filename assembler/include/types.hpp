@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
+#include <map>
 #include <string>
+#include "diagnostics.hpp"
+#include <vector>
 
 namespace risc201 {
 
@@ -32,6 +35,13 @@ struct EncodedRecord {
     int lineNumber = 0;
     uint32_t address = 0;
     uint32_t machineWord = 0;
+};
+
+struct AssembleResult {
+    bool success = false;
+    std::vector<EncodedRecord> words;
+    std::map<std::string, uint32_t> symbols;
+    std::vector<Diagnostic> diagnostics;
 };
 
 } // namespace risc201

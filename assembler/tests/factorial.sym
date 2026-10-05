@@ -1,0 +1,4 @@
+0000001c .continue
+0000000c .factorial
+00000000 .main
+00000044 .return

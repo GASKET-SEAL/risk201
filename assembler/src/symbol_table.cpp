@@ -17,4 +17,8 @@ uint32_t SymbolTable::valueOf(const std::string& name) const {
     return it->second;
 }
 
+const std::map<std::string, uint32_t>& SymbolTable::all() const {
+    return table;
+}
+
 } // namespace risc201
