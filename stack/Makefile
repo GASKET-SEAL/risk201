@@ -1,25 +1,31 @@
-CXX      ?= g++
-CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -Iinclude
-SRC      := $(wildcard src/*.cpp)
-OBJ      := $(SRC:src/%.cpp=build/%.o)
-BIN      := risc201_stack
+CXX      := g++
+CXXFLAGS := -std=c++17 -O2 -Wall -Wextra -pedantic -Iinclude
+TARGET   := risc201_stack.exe
 
-all: $(BIN)
+# Find all .cpp files in the src directory
+SRCS     := $(wildcard src/*.cpp)
+# Output .o files in a build directory
+OBJS     := $(patsubst src/%.cpp, build/%.o, $(SRCS))
 
-$(BIN): $(OBJ)
+.PHONY: all test clean run directories
+
+all: directories $(TARGET)
+
+directories:
+	@if not exist "build" mkdir build
+
+$(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-build/%.o: src/%.cpp $(wildcard include/*.hpp) | build
+build/%.o: src/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-build:
-	mkdir -p build
+run: $(TARGET)
+	.\$(TARGET)
 
-test: $(BIN)
-	./$(BIN) && ./$(BIN) --naive && ./$(BIN) --no-canary && ./$(BIN) --no-shadow \
-	  && ./$(BIN) --no-canary --no-shadow | tail -1
+test: $(TARGET)
+	.\$(TARGET)
 
 clean:
-	rm -rf build $(BIN)
-
-.PHONY: all test clean
+	@if exist "build" rmdir /s /q build
+	@if exist "$(TARGET)" del /q $(TARGET)
