@@ -25,6 +25,13 @@ OpcodeTable::OpcodeTable() {
     table[0b10011] = {"call",Format::BRANCH};
     table[0b10100] = {"ret", Format::NO_OPERAND};
     table[0b10101] = {"halt", Format::NO_OPERAND};
+    table[0b10110] = {"fadd", Format::REG3};
+    table[0b10111] = {"fsub", Format::REG3};
+    table[0b11000] = {"fmul", Format::REG3};
+    table[0b11001] = {"fdiv", Format::REG3};
+    table[0b11010] = {"fcmp", Format::REG2_NO_RD};
+    table[0b11011] = {"itof", Format::REG2_NO_RS1};
+    table[0b11100] = {"ftoi", Format::REG2_NO_RS1};
 }
 
 std::optional<OpcodeInfo> OpcodeTable::lookup(uint32_t opcode) const {

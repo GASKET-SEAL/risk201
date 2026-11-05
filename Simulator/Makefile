@@ -1,8 +1,8 @@
 # Build: make        (produces risc201sim)
 CXX      = g++
-CXXFLAGS = -std=c++17 -O2 -Wall -Wextra -I../alu/include -I../control/include -I../stack/include
+CXXFLAGS = -std=c++17 -O2 -Wall -Wextra -I../alu/include -I../fpu/include -I../control/include -I../stack/include
 SRCS     = simulator.cpp \
-           ../alu/src/alu.cpp ../alu/src/units.cpp \
+           ../alu/src/alu.cpp ../alu/src/units.cpp ../fpu/src/fpu.cpp \
            ../control/src/control_memory.cpp ../control/src/control_packet.cpp \
            ../control/src/microprogram_sequencer.cpp \
            ../control/src/instruction_fetch_stage.cpp ../control/src/instruction_decode_stage.cpp \

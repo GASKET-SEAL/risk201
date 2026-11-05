@@ -26,6 +26,13 @@ OpcodeTable::OpcodeTable() {
     table["call"] = {0b10011, Format::BRANCH};
     table["ret"]  = {0b10100, Format::NO_OPERAND};
     table["halt"] = {0b10101, Format::NO_OPERAND};
+    table["fadd"] = {0b10110, Format::REG3};
+    table["fsub"] = {0b10111, Format::REG3};
+    table["fmul"] = {0b11000, Format::REG3};
+    table["fdiv"] = {0b11001, Format::REG3};
+    table["fcmp"] = {0b11010, Format::REG2_NO_RD};
+    table["itof"] = {0b11011, Format::REG2_NO_RS1};
+    table["ftoi"] = {0b11100, Format::REG2_NO_RS1};
 }
 
 bool OpcodeTable::exists(const std::string& mnemonic) const {

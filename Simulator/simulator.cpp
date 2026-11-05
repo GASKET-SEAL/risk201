@@ -25,6 +25,7 @@
 
 // Team modules
 #include "../alu/include/alu.hpp"
+#include "../fpu/include/fpu.hpp"
 #include "../control/include/control_packet.hpp"
 #include "../control/include/microinstruction.hpp"
 #include "../control/include/control_memory.hpp"
@@ -176,6 +177,7 @@ public:
     RegisterFile rf;
     ControlMemory cmem;
     Alu alu;
+    Fpu fpu;
     MicroProgramSequencer seq;          // used for the debugger's microPC view
     InstructionFetchStage s_if;
     InstructionDecodeStage s_id;
@@ -214,7 +216,7 @@ public:
     unique_ptr<StackException> stack_fault;   // set when the guard stopped the machine
 
     Simulator(PipelineMode m, const AluConfig& cfg, const StackOptions& so)
-        : mode(m), sopt(so), imem(), dmem(DATA_WORDS), rf(), cmem(), alu(cfg), seq(cmem),
+        : mode(m), sopt(so), imem(), dmem(DATA_WORDS), rf(), cmem(), alu(cfg), fpu(), seq(cmem),
           s_if(imem), s_id(cmem), s_rr(), s_ex(alu), s_ma(dmem), s_wb(rf),
           four(imem, cmem, alu, dmem, rf) {}
 
@@ -264,7 +266,9 @@ public:
     static bool uses_rs1(const ControlPacket& c) {
         return (c.alu_control != ALUControl::NONE &&
                 c.alu_control != ALUControl::MOV &&
-                c.alu_control != ALUControl::NOT) ||
+                c.alu_control != ALUControl::NOT &&
+                c.alu_control != ALUControl::ITOF &&
+                c.alu_control != ALUControl::FTOI) ||
                c.branch_control == BranchControl::RET;
     }
     static bool uses_rs2(const ControlPacket& c) {
@@ -433,6 +437,22 @@ public:
             raise_fault(string(e.what()) + " at PC " + h32(in.pc));
             ex_ma = EXMARegister{};
             return false;
+        }
+        // FP ops are executed by the FPU (the integer ExecuteStage leaves them untouched).
+        switch (in.control.alu_control) {
+            case ALUControl::FADD: case ALUControl::FSUB: case ALUControl::FMUL:
+            case ALUControl::FDIV: case ALUControl::FCMP: case ALUControl::ITOF:
+            case ALUControl::FTOI: {
+                static const FpuOp fop[] = { FpuOp::FADD, FpuOp::FSUB, FpuOp::FMUL, FpuOp::FDIV,
+                                             FpuOp::FCMP, FpuOp::ITOF, FpuOp::FTOI };
+                FpuResult r = fpu.execute(fop[(int)in.control.alu_control - (int)ALUControl::FADD],
+                                          in.operand1, in.operand2);
+                ex_ma.alu_result = r.value;
+                ex_ma.flags.E = r.E;
+                ex_ma.flags.GT = r.GT;
+                break;
+            }
+            default: break;
         }
         if (in.control.flag_write) flags = ex_ma.flags;
 

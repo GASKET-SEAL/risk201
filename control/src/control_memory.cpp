@@ -110,8 +110,23 @@ ControlMemory::ControlMemory()
     // 21: HALT (stops the machine when it reaches write-back)
     memory[21].halt = true;
 
-    // Opcodes 0..21 are implemented; 22..31 are illegal.
-    for (size_t i = 0; i <= 21; ++i) {
+    // 22..28: floating-point ops (executed by the FPU in the EX stage)
+    const ALUControl fp_ops[] = {
+        ALUControl::FADD, ALUControl::FSUB, ALUControl::FMUL, ALUControl::FDIV,
+        ALUControl::FCMP, ALUControl::ITOF, ALUControl::FTOI
+    };
+    for (size_t i = 0; i < 7; ++i) {
+        memory[22 + i].alu_control = fp_ops[i];
+        memory[22 + i].register_write = true;
+        memory[22 + i].write_back = WriteBackControl::ALU_RESULT;
+    }
+    // FCMP (26) only sets the E/GT flags, like CMP.
+    memory[26].register_write = false;
+    memory[26].write_back = WriteBackControl::NONE;
+    memory[26].flag_write = true;
+
+    // Opcodes 0..28 are implemented; 29..31 are illegal.
+    for (size_t i = 0; i <= 28; ++i) {
         memory[i].defined = true;
     }
 }

@@ -19,7 +19,14 @@ enum class ALUControl : uint8_t {
     LSL,
     LSR,
     ASR,
-    CMP
+    CMP,
+    FADD,
+    FSUB,
+    FMUL,
+    FDIV,
+    FCMP,
+    ITOF,
+    FTOI
 };
 
 enum class BranchControl : uint8_t {
