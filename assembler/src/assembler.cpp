@@ -70,10 +70,10 @@ bool Assembler::assemble(const std::string& inputPath, const std::string& output
     }
 
     std::ofstream sym(outputPrefix + ".sym");
-    for (const auto& [name, addr] : result.symbols) {
+    for (const auto& pair : result.symbols) {
         char buf[9];
-        snprintf(buf, sizeof(buf), "%08x", addr);
-        sym << buf << " " << name << "\n";
+        snprintf(buf, sizeof(buf), "%08x", pair.second);
+        sym << buf << " " << pair.first << "\n";
     }
 
     std::cout << "assembled " << result.words.size() << " instruction(s) -> "
