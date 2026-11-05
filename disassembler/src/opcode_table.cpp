@@ -24,6 +24,7 @@ OpcodeTable::OpcodeTable() {
     table[0b10010] = {"b",   Format::BRANCH};
     table[0b10011] = {"call",Format::BRANCH};
     table[0b10100] = {"ret", Format::NO_OPERAND};
+    table[0b10101] = {"halt", Format::NO_OPERAND};
 }
 
 std::optional<OpcodeInfo> OpcodeTable::lookup(uint32_t opcode) const {

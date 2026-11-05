@@ -71,6 +71,19 @@ IDRRRegister InstructionDecodeStage::decode(
     output.control =
         makeControlPacket(microinstruction);
 
+    // I bit (bit 26): ALU instructions take their second operand from the
+    // immediate field when it is set. (Branch opcodes already use the
+    // immediate; for them bit 26 is part of the offset, so leave it alone.)
+    if (output.control.alu_control != ALUControl::NONE &&
+        ((instruction >> 26) & 0x1)) {
+        output.control.use_immediate = true;
+    }
+
+    // CALL writes its return address into the link register R15.
+    if (opcode == 19) {
+        output.rd = 15;
+    }
+
     output.valid = true;
 
     output.instruction = instruction;

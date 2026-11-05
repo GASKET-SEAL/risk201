@@ -25,6 +25,7 @@ OpcodeTable::OpcodeTable() {
     table["b"]    = {0b10010, Format::BRANCH};
     table["call"] = {0b10011, Format::BRANCH};
     table["ret"]  = {0b10100, Format::NO_OPERAND};
+    table["halt"] = {0b10101, Format::NO_OPERAND};
 }
 
 bool OpcodeTable::exists(const std::string& mnemonic) const {

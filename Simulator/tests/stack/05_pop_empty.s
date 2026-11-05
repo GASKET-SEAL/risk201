@@ -1,0 +1,3 @@
+; EXPECT: STACK_UNDERFLOW
+pop r1
+halt

@@ -1,0 +1,2 @@
+; EXPECT: MACRO_ERROR
+pop r1, r99

@@ -107,6 +107,13 @@ ControlMemory::ControlMemory()
     // 20: RET
     memory[20].branch_control = BranchControl::RET;
 
+    // 21: HALT (stops the machine when it reaches write-back)
+    memory[21].halt = true;
+
+    // Opcodes 0..21 are implemented; 22..31 are illegal.
+    for (size_t i = 0; i <= 21; ++i) {
+        memory[i].defined = true;
+    }
 }
 
 const MicroInstruction& ControlMemory::read(uint16_t address) const {

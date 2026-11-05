@@ -18,6 +18,8 @@ ControlPacket makeControlPacket(const MicroInstruction& instruction) {
     packet.register_write = instruction.register_write;
     packet.flag_write = instruction.flag_write;
 
+    packet.halt = instruction.halt;
+
     return packet;
 }
 

@@ -1,0 +1,3 @@
+; EXPECT: MISALIGNED_SP
+sub r13, r13, 3
+halt

@@ -19,6 +19,10 @@ void MicroProgramSequencer::start(uint8_t opcode) {
         throw std::out_of_range("Invalid opcode for control memory");
     }
 
+    if (!control_memory.read(opcode).defined) {
+        throw std::invalid_argument("Illegal opcode");
+    }
+
     micro_pc_value = opcode;
 }
 

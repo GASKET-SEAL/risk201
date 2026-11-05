@@ -21,6 +21,8 @@ struct ControlPacket {
     bool register_write = false;
 
     bool flag_write = false;
+
+    bool halt = false;
 };
 
 ControlPacket makeControlPacket(const MicroInstruction& instruction);

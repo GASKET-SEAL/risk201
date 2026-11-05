@@ -1,0 +1,2 @@
+; EXPECT: MACRO_ERROR
+push r1, r13

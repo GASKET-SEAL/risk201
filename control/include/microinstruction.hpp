@@ -68,6 +68,12 @@ struct MicroInstruction {
     // Architectural flags
     bool flag_write = false;
 
+    // Marks an implemented opcode (unused opcodes raise an illegal-opcode fault)
+    bool defined = false;
+
+    // Stops the machine when this instruction retires (HALT)
+    bool halt = false;
+
     // Pipeline control
     bool stall = false;
     bool flush = false;
